@@ -76,9 +76,9 @@ jobs:
             --window-size=1280,800 \
             "${args[@]}" >/tmp/chromium.log 2>&1 &
           sleep 5
+          x11vnc -storepasswd "$VNC_PASSWORD" /tmp/vnc-passwd >/dev/null
           x11vnc -display :99 -forever -shared -rfbport 5900 \
-            -rfbauth <(x11vnc -storepasswd "$VNC_PASSWORD" /tmp/vnc-passwd >/dev/null 2>&1; cat /tmp/vnc-passwd) \
-            -localhost -nopw 2>/tmp/x11vnc.log &
+            -rfbauth /tmp/vnc-passwd -localhost 2>/tmp/x11vnc.log &
           websockify --web=/usr/share/novnc 6080 localhost:5900 >/tmp/websockify.log 2>&1 &
           sleep 2
           if ! curl -fsS http://localhost:6080/vnc.html >/dev/null; then
