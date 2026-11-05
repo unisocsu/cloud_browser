@@ -1,0 +1,43 @@
+name: Publish Cloud Browser release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        default: v0.1.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Build source archive
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output="cloud-browser-${TAG}.zip" HEAD
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<'EOF'
+          Initial proof-of-concept release.
+
+          Includes a GitHub Actions workflow that starts Chromium on a temporary
+          Ubuntu runner and exposes the desktop through noVNC over a Cloudflare Tunnel.
+
+          This is a temporary interactive session, not an always-on browser service.
+          Configure Cloudflare Access and the required GitHub Actions secrets before use.
+          EOF
+          gh release create "$TAG" "cloud-browser-$TAG.zip" \
+            --title "Cloud Browser $TAG" \
+            --notes-file release-notes.md
