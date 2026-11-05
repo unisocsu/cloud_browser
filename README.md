@@ -21,7 +21,7 @@ A proof-of-concept remote Chromium desktop. Chromium runs on a GitHub-hosted Ubu
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
 
 - `CLOUDFLARED_TUNNEL_TOKEN`: token for the tunnel above.
-- `VNC_PASSWORD`: a strong VNC password (at least 6 characters).
+- `VNC_PASSWORD`: a VNC password of 6–8 characters (classic VNC authentication truncates longer passwords).
 
 Never commit either value.
 
