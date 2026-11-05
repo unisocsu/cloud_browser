@@ -27,8 +27,8 @@ jobs:
             echo "::error::Missing CLOUDFLARED_TUNNEL_TOKEN repository secret."
             exit 1
           fi
-          if [[ -z "$VNC_PASSWORD" || ${#VNC_PASSWORD} -lt 6 ]]; then
-            echo "::error::Missing VNC_PASSWORD secret (minimum 6 characters)."
+          if [[ -z "$VNC_PASSWORD" || ${#VNC_PASSWORD} -lt 6 || ${#VNC_PASSWORD} -gt 8 ]]; then
+            echo "::error::Missing VNC_PASSWORD secret (must be 6–8 characters for classic VNC authentication)."
             exit 1
           fi
 
