@@ -1,0 +1,9 @@
+.env
+.env.*
+*.key
+*.pem
+cookies*
+session*
+profile/
+playwright/.cache/
+node_modules/
