@@ -1,4 +1,4 @@
-name: Publish Cloud Browser release
+name: Publish Chromium GitHub Homepage Screenshot
 
 on:
   workflow_dispatch:
@@ -6,38 +6,85 @@ on:
       tag:
         description: Release tag
         required: true
-        default: v0.1.0
+        default: v0.1.1
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  screenshot-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - name: Check out source
+      - name: Check out repository
         uses: actions/checkout@v4
-      - name: Build source archive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Capture GitHub homepage in Chromium
+        run: |
+          mkdir -p release-content
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const page = await browser.newPage({
+              viewport: { width: 1440, height: 1000 },
+              deviceScaleFactor: 1
+            });
+            const response = await page.goto('https://github.com/', {
+              waitUntil: 'domcontentloaded',
+              timeout: 90000
+            });
+            if (!response || !response.ok()) {
+              throw new Error(`GitHub homepage returned HTTP ${response?.status() ?? 'no response'}`);
+            }
+            await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+            await page.screenshot({
+              path: 'release-content/github-homepage.png',
+              fullPage: true,
+              animations: 'disabled'
+            });
+            console.log('Captured:', page.url());
+            console.log('Title:', await page.title());
+            console.log('Screenshot saved to release-content/github-homepage.png');
+          } finally {
+            await browser.close();
+          }
+          NODE
+
+      - name: Package screenshot as ZIP
         env:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          git archive --format=zip --output="cloud-browser-${TAG}.zip" HEAD
-      - name: Create GitHub Release
+          cat > release-content/README.txt <<'EOF'
+          GitHub homepage screenshot captured by Playwright Chromium in GitHub Actions.
+          File: github-homepage.png
+          EOF
+          cd release-content
+          zip -r "../github-homepage-chromium-${TAG}.zip" .
+
+      - name: Publish ZIP as GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
           cat > release-notes.md <<'EOF'
-          Initial proof-of-concept release.
-
-          Includes a GitHub Actions workflow that starts Chromium on a temporary
-          Ubuntu runner and exposes the desktop through noVNC over a Cloudflare Tunnel.
-
-          This is a temporary interactive session, not an always-on browser service.
-          Configure Cloudflare Access and the required GitHub Actions secrets before use.
+          Screenshot of the GitHub homepage captured using Chromium (Playwright)
+          on a GitHub Actions runner. The release asset is a ZIP containing the
+          full-page PNG screenshot and a short README.
           EOF
-          gh release create "$TAG" "cloud-browser-$TAG.zip" \
-            --title "Cloud Browser $TAG" \
+          gh release create "$TAG" "github-homepage-chromium-${TAG}.zip" \
+            --title "Chromium GitHub Homepage Screenshot ${TAG}" \
             --notes-file release-notes.md
