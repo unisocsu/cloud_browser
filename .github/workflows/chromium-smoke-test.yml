@@ -1,0 +1,54 @@
+name: Chromium smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Launch Chromium and verify page rendering
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({ headless: true });
+          try {
+            const page = await browser.newPage();
+            const response = await page.goto('https://example.com', {
+              waitUntil: 'domcontentloaded',
+              timeout: 30000
+            });
+            const title = await page.title();
+            const heading = await page.locator('h1').innerText();
+
+            console.log('HTTP status:', response?.status());
+            console.log('Page title:', title);
+            console.log('Main heading:', heading);
+
+            if (!response?.ok() || title !== 'Example Domain' || !heading.includes('Example Domain')) {
+              throw new Error('Chromium smoke test failed: page did not render as expected');
+            }
+          } finally {
+            await browser.close();
+          }
+          NODE
