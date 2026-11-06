@@ -94,7 +94,7 @@ jobs:
           TUNNEL_TOKEN: ${{ secrets.CLOUDFLARED_TUNNEL_TOKEN }}
         run: |
           set -euo pipefail
-          cloudflared tunnel run --no-autoupdate --token "$TUNNEL_TOKEN" >/tmp/cloudflared.log 2>&1 &
+          cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN" >/tmp/cloudflared.log 2>&1 &
           echo $! >/tmp/cloudflared.pid
           sleep 8
           if ! kill -0 "$(cat /tmp/cloudflared.pid)" 2>/dev/null; then
