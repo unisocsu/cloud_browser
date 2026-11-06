@@ -12,21 +12,16 @@ concurrency:
 
 jobs:
   browser:
-    name: Run Chromium desktop and Cloudflare Tunnel
+    name: Run Chromium desktop and Cloudflare Quick Tunnel
     runs-on: ubuntu-latest
     timeout-minutes: 350
     steps:
       - name: Check required secrets
         shell: bash
         env:
-          TUNNEL_TOKEN: ${{ secrets.CLOUDFLARED_TUNNEL_TOKEN }}
           VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "$TUNNEL_TOKEN" ]]; then
-            echo "::error::Missing CLOUDFLARED_TUNNEL_TOKEN repository secret."
-            exit 1
-          fi
           if [[ -z "$VNC_PASSWORD" || ${#VNC_PASSWORD} -lt 6 || ${#VNC_PASSWORD} -gt 8 ]]; then
             echo "::error::Missing VNC_PASSWORD secret (must be 6–8 characters for classic VNC authentication)."
             exit 1
@@ -88,21 +83,40 @@ jobs:
           fi
           echo "Chromium desktop is ready on localhost:6080."
 
-      - name: Start Cloudflare Tunnel
+      - name: Start Cloudflare Quick Tunnel
         shell: bash
-        env:
-          TUNNEL_TOKEN: ${{ secrets.CLOUDFLARED_TUNNEL_TOKEN }}
         run: |
           set -euo pipefail
-          cloudflared tunnel --no-autoupdate run --token "$TUNNEL_TOKEN" >/tmp/cloudflared.log 2>&1 &
+          cloudflared tunnel --no-autoupdate --url http://localhost:6080 --logfile /tmp/cloudflared.log --loglevel info >/tmp/cloudflared-console.log 2>&1 &
           echo $! >/tmp/cloudflared.pid
-          sleep 8
-          if ! kill -0 "$(cat /tmp/cloudflared.pid)" 2>/dev/null; then
-            cat /tmp/cloudflared.log
-            echo "::error::Cloudflare Tunnel failed to start. Check the tunnel token and Public Hostname route."
+          tunnel_url=""
+          for attempt in $(seq 1 30); do
+            tunnel_url="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared.log /tmp/cloudflared-console.log 2>/dev/null | head -n 1 | sed 's/^[^:]*://')"
+            if [[ -n "$tunnel_url" ]]; then
+              break
+            fi
+            if ! kill -0 "$(cat /tmp/cloudflared.pid)" 2>/dev/null; then
+              cat /tmp/cloudflared.log /tmp/cloudflared-console.log 2>/dev/null || true
+              echo "::error::Cloudflare Quick Tunnel failed to start."
+              exit 1
+            fi
+            sleep 2
+          done
+          if [[ -z "$tunnel_url" ]]; then
+            cat /tmp/cloudflared.log /tmp/cloudflared-console.log 2>/dev/null || true
+            echo "::error::Timed out waiting for the trycloudflare.com URL."
             exit 1
           fi
-          echo "Tunnel process started. Open your Cloudflare Access-protected hostname at /vnc.html?autoconnect=true&resize=remote"
+          echo "Quick Tunnel is ready: $tunnel_url"
+          {
+            echo "## Remote Chromium desktop"
+            echo ""
+            echo "**Open:** $tunnel_url/vnc.html?autoconnect=true&resize=remote"
+            echo ""
+            echo "Enter the repository VNC_PASSWORD when prompted."
+            echo ""
+            echo "This temporary Quick Tunnel URL changes on each run. Anyone with the URL can reach the noVNC page; VNC authentication is required to access the desktop."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep session alive
         shell: bash
@@ -120,7 +134,7 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for f in /tmp/xvfb.log /tmp/fluxbox.log /tmp/chromium.log /tmp/x11vnc.log /tmp/websockify.log /tmp/cloudflared.log; do
+          for f in /tmp/xvfb.log /tmp/fluxbox.log /tmp/chromium.log /tmp/x11vnc.log /tmp/websockify.log /tmp/cloudflared.log /tmp/cloudflared-console.log; do
             if [[ -f "$f" ]]; then
               echo "===== $f ====="
               tail -n 80 "$f" || true
