@@ -54,6 +54,7 @@ jobs:
         shell: bash
         env:
           BROWSER_URLS: ${{ vars.BROWSER_URLS }}
+          VNC_PASSWORD: ${{ secrets.VNC_PASSWORD }}
         run: |
           set -euo pipefail
           export DISPLAY=:99
