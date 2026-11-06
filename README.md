@@ -1,4 +1,4 @@
-# Cloud Browser (GitHub Actions + Cloudflare Tunnel)
+# Cloud Browser (GitHub Actions + Cloudflare Quick Tunnel)
 
 A proof-of-concept remote Chromium desktop. Chromium runs on a GitHub-hosted Ubuntu runner; noVNC exposes the desktop through a Cloudflare Tunnel. The runner is temporary, not a permanent server.
 
@@ -6,31 +6,27 @@ A proof-of-concept remote Chromium desktop. Chromium runs on a GitHub-hosted Ubu
 
 - Starts Chromium on an Xvfb virtual display.
 - Opens three tabs (URLs can be changed in `BROWSER_URLS`).
-- Exposes the desktop through noVNC + WebSocket over a Cloudflare Tunnel.
-- Uses a VNC password. **Protect the public hostname with Cloudflare Access as well.**
+- Exposes the desktop through noVNC + WebSocket over a temporary Cloudflare Quick Tunnel (`trycloudflare.com`).
+- Uses VNC password authentication to access the desktop. The temporary public URL itself is not protected by Cloudflare Access.
 
-## Cloudflare setup (one time)
+## Setup
 
-1. In Cloudflare Zero Trust, create a Cloudflare Tunnel.
-2. Add a Public Hostname, e.g. `browser.example.com`, with service `http://localhost:6080`.
-3. Protect that hostname with a Cloudflare Access application/policy. Do not publish the VNC desktop without Access.
-4. Copy the tunnel token.
+No domain, DNS record, named Cloudflare Tunnel, or Cloudflare account token is required. The workflow starts a temporary Cloudflare Quick Tunnel automatically and prints the generated `https://….trycloudflare.com` URL in the workflow run summary.
 
-## GitHub setup
+In GitHub repository **Settings → Secrets and variables → Actions**, add only:
 
-In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
+- `VNC_PASSWORD`: a unique password of 6–8 characters (classic VNC authentication truncates longer passwords).
 
-- `CLOUDFLARED_TUNNEL_TOKEN`: token for the tunnel above.
-- `VNC_PASSWORD`: a VNC password of 6–8 characters (classic VNC authentication truncates longer passwords).
-
-Never commit either value.
+Never commit the password. Do not add or share a Cloudflare tunnel token for this Quick Tunnel setup.
 
 ## Start a browser session
 
 1. Open **Actions → Cloud Browser Session → Run workflow**.
-2. Wait for the setup steps to finish.
-3. Open your protected hostname, e.g. `https://browser.example.com/vnc.html?autoconnect=true&resize=remote`.
+2. Wait for **Start Cloudflare Quick Tunnel** to finish.
+3. Open the URL shown in the run summary, followed by `/vnc.html?autoconnect=true&resize=remote`.
 4. Enter the VNC password when prompted.
+
+The Quick Tunnel URL changes on each run. Anyone who obtains the URL can reach the noVNC page, but must still pass VNC authentication to control the desktop. Keep the URL private and stop the workflow when finished.
 
 The workflow runs for up to about 5 hours, then GitHub terminates the runner and the session ends. Starting another run creates a fresh browser profile. This is a prototype, not a guaranteed always-on service.
 
