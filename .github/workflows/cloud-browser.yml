@@ -91,7 +91,7 @@ jobs:
           echo $! >/tmp/cloudflared.pid
           tunnel_url=""
           for attempt in $(seq 1 30); do
-            tunnel_url="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared.log /tmp/cloudflared-console.log 2>/dev/null | head -n 1 | sed 's/^[^:]*://')"
+            tunnel_url="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared.log 2>/dev/null | head -n 1 || true)"
             if [[ -n "$tunnel_url" ]]; then
               break
             fi
@@ -103,7 +103,7 @@ jobs:
             sleep 2
           done
           if [[ -z "$tunnel_url" ]]; then
-            cat /tmp/cloudflared.log /tmp/cloudflared-console.log 2>/dev/null || true
+            cat /tmp/cloudflared.log 2>/dev/null || true
             echo "::error::Timed out waiting for the trycloudflare.com URL."
             exit 1
           fi
@@ -115,7 +115,7 @@ jobs:
             echo ""
             echo "Enter the repository VNC_PASSWORD when prompted."
             echo ""
-            echo "This temporary Quick Tunnel URL changes on each run. Anyone with the URL can reach the noVNC page; VNC authentication is required to access the desktop."
+            echo "This temporary Quick Tunnel URL changes on each run. Keep it private; VNC authentication is required to access the desktop."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Keep session alive
