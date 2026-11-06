@@ -85,14 +85,17 @@ jobs:
             await page.screenshot({ path: 'artifacts/chromium-page.png', fullPage: true });
             console.log('PASS: visible Chromium rendered the test page.');
             console.log('User agent:', await page.evaluate(() => navigator.userAgent));
+
+            // Capture the real Xvfb desktop while the visible Chromium window is still open.
+            const { execFileSync } = await import('node:child_process');
             await page.waitForTimeout(1500);
+            execFileSync('import', ['-display', ':99', '-window', 'root', 'artifacts/chromium-desktop.png']);
+            console.log('Captured the Xvfb desktop with Chromium still open.');
           } finally {
             await browser.close();
           }
           NODE
 
-          # Capture the actual virtual desktop, including the Chromium window and window decorations.
-          import -display :99 -window root artifacts/chromium-desktop.png
           identify artifacts/chromium-desktop.png
           test -s artifacts/chromium-desktop.png
           test -s artifacts/chromium-page.png
