@@ -1,0 +1,118 @@
+name: Chromium GUI smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chromium-gui-smoke-test:
+    name: Launch visible Chromium under Xvfb
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install desktop and screenshot dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y xvfb fluxbox imagemagick
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Launch visible Chromium and capture desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1440x1000x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
+          XVFB_PID=$!
+          trap 'kill "$XVFB_PID" 2>/dev/null || true' EXIT
+          sleep 2
+          fluxbox >/tmp/fluxbox.log 2>&1 &
+          sleep 2
+
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          const browser = await chromium.launch({
+            headless: false,
+            args: ['--no-sandbox', '--disable-dev-shm-usage', '--window-size=1280,800']
+          });
+
+          try {
+            const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+            await page.setContent(`
+              <!doctype html>
+              <html>
+                <head>
+                  <title>Cloud Browser GUI Check</title>
+                  <style>
+                    body { font: 24px Arial, sans-serif; margin: 48px; background: #eef3f8; color: #172b4d; }
+                    main { background: white; padding: 36px; border-radius: 16px; max-width: 850px; box-shadow: 0 8px 30px #0002; }
+                    h1 { color: #0759a5; }
+                  </style>
+                </head>
+                <body>
+                  <main>
+                    <h1 id="status">Chromium GUI is working</h1>
+                    <p>This page was rendered in a visible Chromium window on an Xvfb desktop.</p>
+                    <p id="timestamp"></p>
+                  </main>
+                  <script>document.querySelector('#timestamp').textContent = 'Rendered at: ' + new Date().toISOString();</script>
+                </body>
+              </html>
+            `, { waitUntil: 'load' });
+
+            const heading = await page.locator('#status').textContent();
+            if (heading !== 'Chromium GUI is working') {
+              throw new Error('Visible Chromium did not render the expected page');
+            }
+
+            await page.screenshot({ path: 'artifacts/chromium-page.png', fullPage: true });
+            console.log('PASS: visible Chromium rendered the test page.');
+            console.log('User agent:', await page.evaluate(() => navigator.userAgent));
+            await page.waitForTimeout(1500);
+          } finally {
+            await browser.close();
+          }
+          NODE
+
+          # Capture the actual virtual desktop, including the Chromium window and window decorations.
+          import -display :99 -window root artifacts/chromium-desktop.png
+          identify artifacts/chromium-desktop.png
+          test -s artifacts/chromium-desktop.png
+          test -s artifacts/chromium-page.png
+
+      - name: Upload Chromium screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chromium-gui-screenshots
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Show diagnostics on failure
+        if: failure()
+        shell: bash
+        run: |
+          for f in /tmp/xvfb.log /tmp/fluxbox.log; do
+            if [[ -f "$f" ]]; then
+              echo "===== $f ====="
+              tail -n 100 "$f" || true
+            fi
+          done
