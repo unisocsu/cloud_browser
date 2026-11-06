@@ -40,4 +40,4 @@ This prototype uses noVNC in the device browser for a quick compatibility test. 
 
 ## Security
 
-A remote browser can access websites using your session and may expose authenticated data. Keep Cloudflare Access enabled, use a unique VNC password, do not share the URL, and stop the workflow when finished. Do not use this prototype for banking or other high-risk accounts.
+A remote browser can access websites using your session and may expose authenticated data. Use a unique VNC password, keep the temporary URL private, and stop the workflow when finished. Do not use this prototype for banking or other high-risk accounts.
