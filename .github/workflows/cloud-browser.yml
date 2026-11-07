@@ -13,7 +13,7 @@ concurrency:
 jobs:
   browser:
     name: Run Chromium desktop and Cloudflare Quick Tunnel
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 350
     steps:
       - name: Check required secrets
