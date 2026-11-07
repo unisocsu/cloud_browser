@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
           export DISPLAY=:99
-          Xvfb :99 -screen 0 1280x800x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
+          Xvfb :99 -screen 0 240x320x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
           sleep 2
           fluxbox >/tmp/fluxbox.log 2>&1 &
           mkdir -p "$HOME/cloud-browser-profile"
@@ -69,7 +69,8 @@ jobs:
             --user-data-dir="$HOME/cloud-browser-profile" \
             --no-first-run \
             --disable-session-crashed-bubble \
-            --window-size=1280,800 \
+            --window-size=240,320 \
+            --kiosk \
             "${args[@]}" >/tmp/chromium.log 2>&1 &
           sleep 5
           x11vnc -storepasswd "$VNC_PASSWORD" /tmp/vnc-passwd >/dev/null
@@ -91,7 +92,7 @@ jobs:
           echo $! >/tmp/cloudflared.pid
           tunnel_url=""
           for attempt in $(seq 1 30); do
-            tunnel_url="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' /tmp/cloudflared.log 2>/dev/null | head -n 1 || true)"
+            tunnel_url="$(grep -Eo 'https://[a-z0-9-]+\\.trycloudflare\\.com' /tmp/cloudflared.log 2>/dev/null | head -n 1 || true)"
             if [[ -n "$tunnel_url" ]]; then
               break
             fi
